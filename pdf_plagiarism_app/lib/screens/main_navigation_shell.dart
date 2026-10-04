@@ -49,6 +49,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
     target = target.clamp(0, maxIndex);
 
+    if (target == 2 && appState.results.isEmpty) {
+      appState.reloadSavedResults();
+    }
+
     if (_currentIndex != target) {
       setState(() => _currentIndex = target);
     }
@@ -63,7 +67,12 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final isAdmin = appState.isAdmin;
+    final flaggedCount = appState.results.where((r) => r.isFlagged).length;
     final resultsCount = appState.results.length;
+    final similarityBadge = flaggedCount > 0
+        ? flaggedCount
+        : (resultsCount > 0 ? resultsCount : null);
+    final similarityBadgeColor = flaggedCount > 0 ? AppColors.high : AppColors.brand;
     final unreadCount = appState.unreadNotifications.length;
 
     // Pages dynamically scoped to user role
@@ -111,55 +120,67 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: isAdmin
                   ? [
-                      _NavBarItem(
-                        icon: Icons.dashboard_outlined,
-                        activeIcon: Icons.dashboard_rounded,
-                        label: 'Dashboard',
-                        isSelected: safeIndex == 0,
-                        onTap: () => setTab(0),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.dashboard_outlined,
+                          activeIcon: Icons.dashboard_rounded,
+                          label: 'Dashboard',
+                          isSelected: safeIndex == 0,
+                          onTap: () => setTab(0),
+                        ),
                       ),
-                      _NavBarItem(
-                        icon: Icons.hub_outlined,
-                        activeIcon: Icons.hub_rounded,
-                        label: 'Batch Lab',
-                        isSelected: safeIndex == 1,
-                        onTap: () => setTab(1),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.hub_outlined,
+                          activeIcon: Icons.hub_rounded,
+                          label: 'Batch Lab',
+                          isSelected: safeIndex == 1,
+                          onTap: () => setTab(1),
+                        ),
                       ),
-                      _NavBarItem(
-                        icon: Icons.compare_arrows_rounded,
-                        activeIcon: Icons.compare_arrows_rounded,
-                        label: 'Similarity',
-                        isSelected: safeIndex == 2,
-                        badgeCount: resultsCount > 0 ? resultsCount : null,
-                        onTap: () => setTab(2),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.compare_arrows_rounded,
+                          activeIcon: Icons.compare_arrows_rounded,
+                          label: 'Similarity',
+                          isSelected: safeIndex == 2,
+                          badgeCount: similarityBadge,
+                          badgeColor: similarityBadgeColor,
+                          onTap: () => setTab(2),
+                        ),
                       ),
-                      _NavBarItem(
-                        icon: Icons.person_outline_rounded,
-                        activeIcon: Icons.person_rounded,
-                        label: 'Profile',
-                        isSelected: safeIndex == 3,
-                        badgeCount: unreadCount > 0 ? unreadCount : null,
-                        onTap: () => setTab(3),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.person_outline_rounded,
+                          activeIcon: Icons.person_rounded,
+                          label: 'Profile',
+                          isSelected: safeIndex == 3,
+                          badgeCount: unreadCount > 0 ? unreadCount : null,
+                          onTap: () => setTab(3),
+                        ),
                       ),
                     ]
                   : [
-                      _NavBarItem(
-                        icon: Icons.assignment_outlined,
-                        activeIcon: Icons.assignment_rounded,
-                        label: 'My Submissions',
-                        isSelected: safeIndex == 0,
-                        onTap: () => setTab(0),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.assignment_outlined,
+                          activeIcon: Icons.assignment_rounded,
+                          label: 'My Submissions',
+                          isSelected: safeIndex == 0,
+                          onTap: () => setTab(0),
+                        ),
                       ),
-                      _NavBarItem(
-                        icon: Icons.person_outline_rounded,
-                        activeIcon: Icons.person_rounded,
-                        label: 'Profile',
-                        isSelected: safeIndex == 1,
-                        badgeCount: unreadCount > 0 ? unreadCount : null,
-                        onTap: () => setTab(1),
+                      Expanded(
+                        child: _NavBarItem(
+                          icon: Icons.person_outline_rounded,
+                          activeIcon: Icons.person_rounded,
+                          label: 'Profile',
+                          isSelected: safeIndex == 1,
+                          badgeCount: unreadCount > 0 ? unreadCount : null,
+                          onTap: () => setTab(1),
+                        ),
                       ),
                     ],
             ),
@@ -177,6 +198,7 @@ class _NavBarItem extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final int? badgeCount;
+  final Color? badgeColor;
 
   const _NavBarItem({
     required this.icon,
@@ -185,6 +207,7 @@ class _NavBarItem extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     this.badgeCount,
+    this.badgeColor,
   });
 
   @override
@@ -194,7 +217,7 @@ class _NavBarItem extends StatelessWidget {
 
     Widget iconWidget = Icon(
       isSelected ? activeIcon : icon,
-      size: 22,
+      size: 21,
       color: iconColor,
     );
 
@@ -204,7 +227,7 @@ class _NavBarItem extends StatelessWidget {
           badgeCount! > 99 ? '99+' : '$badgeCount',
           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: AppColors.high,
+        backgroundColor: badgeColor ?? AppColors.high,
         child: iconWidget,
       );
     }
@@ -212,26 +235,33 @@ class _NavBarItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.mint.withValues(alpha: 0.14)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            iconWidget,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppColors.mint.withValues(alpha: 0.22)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: iconWidget,
+            ),
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
                 color: textColor,
+                letterSpacing: -0.1,
               ),
             ),
           ],

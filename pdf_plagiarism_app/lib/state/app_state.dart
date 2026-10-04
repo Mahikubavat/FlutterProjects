@@ -306,6 +306,15 @@ class AppState extends ChangeNotifier {
         ? base64Encode(originalBytes)
         : null;
 
+    // Pre-screen document for AI dual-layer signals so results are ready immediately
+    AiDetectionResult? ai;
+    final textForAi = doc.cleanedText.isNotEmpty ? doc.cleanedText : doc.rawText;
+    if (doc.aiClassification == null && textForAi.trim().isNotEmpty) {
+      try {
+        ai = await aiDetectionService.detect(textForAi);
+      } catch (_) {}
+    }
+
     final ownedDocument = AssignmentDocument(
       id: ownedId,
       ownerId: currentUser!.id,
@@ -316,6 +325,15 @@ class AppState extends ChangeNotifier {
       rawText: doc.rawText,
       cleanedText: doc.cleanedText,
       pages: doc.pages,
+      aiProbability: doc.aiProbability ?? ai?.probability,
+      aiDetectionMethod: doc.aiDetectionMethod ?? ai?.method,
+      aiSyntheticScore: doc.aiSyntheticScore ?? ai?.syntheticScore,
+      aiEditingScore: doc.aiEditingScore ?? ai?.editingScore,
+      aiClassification: doc.aiClassification ?? ai?.classification.id,
+      aiExplanation: doc.aiExplanation ?? ai?.explanation,
+      aiDetectedMarkers: doc.aiDetectedMarkers.isNotEmpty ? doc.aiDetectedMarkers : (ai?.detectedMarkers ?? const []),
+      aiBurstinessScore: doc.aiBurstinessScore ?? ai?.burstinessScore,
+      aiVocabularyRichness: doc.aiVocabularyRichness ?? ai?.vocabularyRichness,
     );
     try {
       await database.saveDocument(ownedDocument);
@@ -376,15 +394,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> runAiCheck(String documentId) async {
+  Future<AssignmentDocument?> runAiCheck(String documentId) async {
     final index = documents.indexWhere((document) => document.id == documentId);
-    if (index < 0 || isProcessing) return;
+    if (index < 0 || isProcessing) return null;
     isProcessing = true;
     processingMessage = 'Checking AI writing signals';
     notifyListeners();
     try {
       final document = documents[index];
-      final ai = await aiDetectionService.detect(document.cleanedText);
+      final textToScreen = document.cleanedText.isNotEmpty ? document.cleanedText : document.rawText;
+      final ai = await aiDetectionService.detect(textToScreen);
       final updated = AssignmentDocument(
         id: document.id,
         ownerId: document.ownerId,
@@ -407,6 +426,7 @@ class AppState extends ChangeNotifier {
       );
       await database.saveDocument(updated);
       documents[index] = updated;
+      return updated;
     } finally {
       isProcessing = false;
       processingMessage = '';
@@ -425,6 +445,14 @@ class AppState extends ChangeNotifier {
 
   Future<void> loadSampleDocuments(List<AssignmentDocument> samples) async {
     for (final sample in samples) {
+      final textForAi = sample.cleanedText.isNotEmpty ? sample.cleanedText : sample.rawText;
+      AiDetectionResult? ai;
+      if (sample.aiClassification == null && textForAi.trim().isNotEmpty) {
+        try {
+          ai = await aiDetectionService.detect(textForAi);
+        } catch (_) {}
+      }
+
       await database.saveDocument(
         AssignmentDocument(
           id: _ownedId(sample.id),
@@ -433,6 +461,15 @@ class AppState extends ChangeNotifier {
           rawText: sample.rawText,
           cleanedText: sample.cleanedText,
           pages: sample.pages,
+          aiProbability: sample.aiProbability ?? ai?.probability,
+          aiDetectionMethod: sample.aiDetectionMethod ?? ai?.method,
+          aiSyntheticScore: sample.aiSyntheticScore ?? ai?.syntheticScore,
+          aiEditingScore: sample.aiEditingScore ?? ai?.editingScore,
+          aiClassification: sample.aiClassification ?? ai?.classification.id,
+          aiExplanation: sample.aiExplanation ?? ai?.explanation,
+          aiDetectedMarkers: sample.aiDetectedMarkers.isNotEmpty ? sample.aiDetectedMarkers : (ai?.detectedMarkers ?? const []),
+          aiBurstinessScore: sample.aiBurstinessScore ?? ai?.burstinessScore,
+          aiVocabularyRichness: sample.aiVocabularyRichness ?? ai?.vocabularyRichness,
         ),
       );
     }
@@ -475,6 +512,27 @@ class AppState extends ChangeNotifier {
     processingProgress = 1;
     processingMessage = '';
     notifyListeners();
+  }
+
+  /// Sets analysis results, saves them persistently, and notifies all UI screens
+  Future<void> setResults(List<ComparisonResult> newResults, [DateTime? timestamp]) async {
+    final time = timestamp ?? DateTime.now();
+    await database.saveResults(newResults, time);
+    results = List<ComparisonResult>.from(newResults);
+    lastAnalyzedAt = time;
+    notifyListeners();
+  }
+
+  /// Re-syncs latest saved comparisons from persistent database storage
+  Future<void> reloadSavedResults() async {
+    try {
+      final saved = await database.getSavedResults();
+      if (saved.isNotEmpty) {
+        results = saved;
+        lastAnalyzedAt = await database.getSavedResultsTimestamp() ?? DateTime.now();
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   AssignmentDocument? documentById(String id) {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pdf_plagiarism_app/similarity_engine.dart';
+import 'package:plagiarism_checker/similarity_engine.dart';
 
 void main() {
   group('SimilarityEngine Unit Tests', () {

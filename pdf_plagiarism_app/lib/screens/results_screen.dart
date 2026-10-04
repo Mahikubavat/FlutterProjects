@@ -7,6 +7,7 @@ import '../state/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui_kit.dart';
 import 'detail_screen.dart';
+import 'main_navigation_shell.dart';
 
 class ResultsScreen extends StatefulWidget {
   const ResultsScreen({super.key});
@@ -20,6 +21,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
   String _selectedFilter = 'all'; // 'all', 'high', 'review', 'low'
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = context.read<AppState>();
+      if (state.results.isEmpty) {
+        state.reloadSavedResults();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -108,11 +121,60 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ],
       ),
       body: results.isEmpty
-          ? const EmptyState(
-              icon: Icons.compare_arrows_rounded,
-              title: 'No Analysis Results Found',
-              message:
-                  'Select at least two documents on the documents screen and tap "Run Plagiarism Comparison".',
+          ? Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        color: AppColors.brand.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.brand.withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(Icons.compare_arrows_rounded, size: 48, color: AppColors.brand),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'No Similarity Comparisons Yet',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.text),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Select two or more documents from your submissions or run a batch evaluation to compare documents for similarity.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: AppColors.muted, height: 1.4),
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.brand,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.dashboard_outlined, size: 18),
+                          label: const Text('Go to Documents'),
+                          onPressed: () => MainNavigationShell.switchTab(context, 0),
+                        ),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.hub_outlined, size: 18),
+                          label: const Text('Batch Lab'),
+                          onPressed: () => MainNavigationShell.switchTab(context, 1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             )
           : PageFrame(
               maxWidth: 960,
@@ -126,126 +188,251 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         : 'Ranked by highest similarity score. Tap any comparison to view matching phrases side-by-side.',
                   ),
 
-                  // Analytics Summary Metric Cards
-                  Row(
-                    children: [
-                      _StatCard(
+                  // Pairwise summary explanation banner
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.brand.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.brand.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.info_outline_rounded, color: AppColors.brand, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Showing ${results.length} Document Pair Combinations',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: AppColors.text),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                high > 0
+                                    ? '$high high-risk match detected. Tap any comparison card to inspect matching phrases.'
+                                    : 'All document pairs compared. Tap any card to inspect side-by-side matches.',
+                                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Analytics Summary Metric Cards (Responsive LayoutBuilder)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 520;
+                      final cardTotal = _StatCard(
                         title: '${results.length}',
                         label: 'Total Pairs',
                         color: AppColors.ink,
                         icon: Icons.hub_outlined,
-                      ),
-                      const SizedBox(width: 10),
-                      _StatCard(
+                      );
+                      final cardHigh = _StatCard(
                         title: '$high',
                         label: 'High Risk',
                         color: AppColors.high,
                         icon: Icons.warning_amber_rounded,
-                      ),
-                      const SizedBox(width: 10),
-                      _StatCard(
+                      );
+                      final cardReview = _StatCard(
                         title: '$review',
                         label: 'Needs Review',
                         color: AppColors.review,
                         icon: Icons.flag_outlined,
-                      ),
-                      const SizedBox(width: 10),
-                      _StatCard(
+                      );
+                      final cardLow = _StatCard(
                         title: '$low',
                         label: 'Low / Safe',
                         color: AppColors.low,
                         icon: Icons.check_circle_outline,
-                      ),
-                    ],
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: cardTotal),
+                                const SizedBox(width: 10),
+                                Expanded(child: cardHigh),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: cardReview),
+                                const SizedBox(width: 10),
+                                Expanded(child: cardLow),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: cardTotal),
+                          const SizedBox(width: 10),
+                          Expanded(child: cardHigh),
+                          const SizedBox(width: 10),
+                          Expanded(child: cardReview),
+                          const SizedBox(width: 10),
+                          Expanded(child: cardLow),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 20),
 
-                  // Search & Filter Bar
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                          decoration: InputDecoration(
-                            hintText: 'Search compared documents...',
-                            prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.muted),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 16),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: Colors.white,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.line),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: AppColors.line),
-                            ),
+                  // Search & Filter Bar (Responsive)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 560;
+                      final searchField = TextField(
+                        controller: _searchController,
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        decoration: InputDecoration(
+                          hintText: 'Search compared documents...',
+                          prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.muted),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, size: 16),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppColors.line),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: AppColors.line),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Wrap(
-                        spacing: 6,
+                      );
+
+                      final filterChips = SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _FilterChip(
+                              label: 'All (${results.length})',
+                              selected: _selectedFilter == 'all',
+                              onTap: () => setState(() => _selectedFilter = 'all'),
+                            ),
+                            const SizedBox(width: 6),
+                            _FilterChip(
+                              label: 'High ($high)',
+                              color: AppColors.high,
+                              selected: _selectedFilter == 'high',
+                              onTap: () => setState(() => _selectedFilter = 'high'),
+                            ),
+                            const SizedBox(width: 6),
+                            _FilterChip(
+                              label: 'Review ($review)',
+                              color: AppColors.review,
+                              selected: _selectedFilter == 'review',
+                              onTap: () => setState(() => _selectedFilter = 'review'),
+                            ),
+                            const SizedBox(width: 6),
+                            _FilterChip(
+                              label: 'Low ($low)',
+                              color: AppColors.low,
+                              selected: _selectedFilter == 'low',
+                              onTap: () => setState(() => _selectedFilter = 'low'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            searchField,
+                            const SizedBox(height: 10),
+                            filterChips,
+                          ],
+                        );
+                      }
+
+                      return Row(
                         children: [
-                          _FilterChip(
-                            label: 'All (${results.length})',
-                            selected: _selectedFilter == 'all',
-                            onTap: () => setState(() => _selectedFilter = 'all'),
-                          ),
-                          _FilterChip(
-                            label: 'High ($high)',
-                            color: AppColors.high,
-                            selected: _selectedFilter == 'high',
-                            onTap: () => setState(() => _selectedFilter = 'high'),
-                          ),
-                          _FilterChip(
-                            label: 'Review ($review)',
-                            color: AppColors.review,
-                            selected: _selectedFilter == 'review',
-                            onTap: () => setState(() => _selectedFilter = 'review'),
-                          ),
-                          _FilterChip(
-                            label: 'Low ($low)',
-                            color: AppColors.low,
-                            selected: _selectedFilter == 'low',
-                            onTap: () => setState(() => _selectedFilter = 'low'),
-                          ),
+                          Expanded(child: searchField),
+                          const SizedBox(width: 12),
+                          filterChips,
                         ],
-                      ),
-                    ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 18),
 
                   if (filteredResults.isEmpty)
-                    const AppCard(
-                      padding: EdgeInsets.all(32),
+                    AppCard(
+                      padding: const EdgeInsets.all(28),
                       child: Center(
-                        child: Text(
-                          'No document pairs match your search query or filter selection.',
-                          style: TextStyle(color: AppColors.muted),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.filter_list_off_rounded, size: 40, color: AppColors.muted),
+                            const SizedBox(height: 12),
+                            Text(
+                              _searchQuery.isNotEmpty
+                                  ? 'No document pairs match "$_searchQuery".'
+                                  : 'No document pairs match filter "${_selectedFilter.toUpperCase()}".',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${results.length} total comparisons are available.',
+                              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                            ),
+                            const SizedBox(height: 16),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              label: const Text('Show All Comparisons'),
+                              onPressed: () {
+                                setState(() {
+                                  _selectedFilter = 'all';
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                });
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     ),
 
-                  for (final r in filteredResults)
+                  for (int i = 0; i < filteredResults.length; i++)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _ResultCard(
-                        result: r,
+                        result: filteredResults[i],
+                        pairIndex: i + 1,
+                        totalPairs: filteredResults.length,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => DetailScreen(result: r),
+                            builder: (_) => DetailScreen(result: filteredResults[i]),
                           ),
                         ),
                       ),
@@ -272,49 +459,47 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: AppCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        borderColor: color.withValues(alpha: 0.25),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, size: 16, color: color),
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      borderColor: color.withValues(alpha: 0.25),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                      color: color,
-                    ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: color,
                   ),
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.muted,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.muted,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -366,8 +551,15 @@ class _FilterChip extends StatelessWidget {
 class _ResultCard extends StatelessWidget {
   final ComparisonResult result;
   final VoidCallback onTap;
+  final int? pairIndex;
+  final int? totalPairs;
 
-  const _ResultCard({required this.result, required this.onTap});
+  const _ResultCard({
+    required this.result,
+    required this.onTap,
+    this.pairIndex,
+    this.totalPairs,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -389,8 +581,28 @@ class _ResultCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    if (pairIndex != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.paper,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppColors.line),
+                        ),
+                        child: Text(
+                          totalPairs != null ? 'Pair #$pairIndex of $totalPairs' : 'Pair #$pairIndex',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -406,7 +618,6 @@ class _ResultCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     if (matchCount > 0)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

@@ -1,31 +1,11 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class SimilarityEngine {
-  /// Extracts text from image file using ML Kit OCR (supported on Android and iOS)
+  /// Extracts text from image file
   static Future<String> extractTextFromImagePath(String filePath) async {
-    try {
-      if (kIsWeb) {
-        throw UnsupportedError("OCR image recognition via Google ML Kit is only supported on mobile devices (Android/iOS).");
-      }
-
-      final inputImage = InputImage.fromFilePath(filePath);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
-
-      return recognizedText.text
-          .replaceAll('\r\n', '\n')
-          .replaceAll('\r', '\n')
-          .replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), ' ')
-          .replaceAll(RegExp(r'[ \t]+'), ' ')
-          .trim();
-    } catch (e) {
-      debugPrint("Error extracting text from image with OCR: $e");
-      rethrow;
-    }
+    throw UnsupportedError("Use OcrService for OCR text extraction.");
   }
 
   /// Extracts PDF text and merges fragmented lines into natural paragraphs

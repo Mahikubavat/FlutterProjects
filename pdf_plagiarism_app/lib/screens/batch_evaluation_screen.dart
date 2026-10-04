@@ -189,11 +189,9 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
       }
     }
 
-    // Save results into app state for persistence
+    // Save results into app state and notify all listeners
     if (comparisons.isNotEmpty) {
-      await appState.database.saveResults(comparisons, DateTime.now());
-      appState.results = comparisons;
-      appState.lastAnalyzedAt = DateTime.now();
+      await appState.setResults(comparisons, DateTime.now());
     }
 
     // Group matching docs by unique student
@@ -589,53 +587,69 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                flex: 3,
-                child: SizedBox(
-                  height: 48,
-                  child: TextField(
-                    controller: _tagController,
-                    enabled: !isRunning,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Assignment Tag / Convention',
-                      hintText: 'e.g. lab1',
-                      prefixIcon: Icon(Icons.bookmark_outline, size: 18),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 460;
+              final tagField = SizedBox(
+                height: 48,
+                child: TextField(
+                  controller: _tagController,
+                  enabled: !isRunning,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Assignment Tag / Convention',
+                    hintText: 'e.g. lab1',
+                    prefixIcon: Icon(Icons.bookmark_outline, size: 18),
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 2,
-                child: Container(
-                  height: 48,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.people_alt_outlined, size: 18, color: AppColors.brand),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${_selectedStudentIds.length} Students Selected',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
+              );
+
+              final countBadge = Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.paper,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.line),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people_alt_outlined, size: 18, color: AppColors.brand),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${_selectedStudentIds.length} Students Selected',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    tagField,
+                    const SizedBox(height: 10),
+                    countBadge,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(flex: 3, child: tagField),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 2, child: countBadge),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 8),
           Text(
@@ -649,43 +663,42 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
           if (studentMap.isNotEmpty) ...[
             const SizedBox(height: 14),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Select Students to Include in Batch:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.muted),
+                const Expanded(
+                  child: Text(
+                    'Select Students to Include in Batch:',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.muted),
+                  ),
                 ),
-                Row(
-                  children: [
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: isRunning
-                          ? null
-                          : () {
-                              setState(() {
-                                _selectedStudentIds.addAll(studentMap.keys);
-                              });
-                            },
-                      child: const Text('Select All', style: TextStyle(fontSize: 12)),
-                    ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: isRunning
-                          ? null
-                          : () {
-                              setState(() {
-                                _selectedStudentIds.clear();
-                              });
-                            },
-                      child: const Text('Clear', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: isRunning
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedStudentIds.addAll(studentMap.keys);
+                          });
+                        },
+                  child: const Text('Select All', style: TextStyle(fontSize: 12)),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: isRunning
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedStudentIds.clear();
+                          });
+                        },
+                  child: const Text('Clear', style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -728,12 +741,15 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.brand,
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
                 icon: isRunning
                     ? const SizedBox(
@@ -748,8 +764,10 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
                 ),
                 onPressed: isRunning ? null : () => _runLocalBatchEvaluation(appState),
               ),
-              const SizedBox(width: 12),
               OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
                 icon: const Icon(Icons.science_outlined, size: 18),
                 label: const Text('Simulate Demo Batch'),
                 onPressed: isRunning
@@ -964,61 +982,107 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Metric Row
-        Row(
-          children: [
-            Expanded(
-              child: _buildMetricCard(
-                title: 'Total Evaluated',
-                value: '$totalCount',
-                subtitle: 'Students in batch',
-                color: AppColors.brand,
-                icon: Icons.school_outlined,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildMetricCard(
-                title: 'Flagged Review',
-                value: '$flaggedCount',
-                subtitle: '> 40% similarity',
-                color: AppColors.review,
-                icon: Icons.warning_amber_rounded,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildMetricCard(
-                title: 'High Risk',
-                value: '$highRiskCount',
-                subtitle: '> 60% copy match',
-                color: AppColors.high,
-                icon: Icons.gavel_rounded,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
+        // Metric Row (Responsive LayoutBuilder)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 540;
+            final cardTotal = _buildMetricCard(
+              title: 'Total Evaluated',
+              value: '$totalCount',
+              subtitle: 'Students in batch',
+              color: AppColors.brand,
+              icon: Icons.school_outlined,
+            );
+            final cardFlagged = _buildMetricCard(
+              title: 'Flagged Review',
+              value: '$flaggedCount',
+              subtitle: '> 40% similarity',
+              color: AppColors.review,
+              icon: Icons.warning_amber_rounded,
+            );
+            final cardHighRisk = _buildMetricCard(
+              title: 'High Risk',
+              value: '$highRiskCount',
+              subtitle: '> 60% copy match',
+              color: AppColors.high,
+              icon: Icons.gavel_rounded,
+            );
 
-        // Controls Row: Slider Threshold & Search
+            if (isNarrow) {
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: cardTotal),
+                      const SizedBox(width: 10),
+                      Expanded(child: cardFlagged),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  cardHighRisk,
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(child: cardTotal),
+                const SizedBox(width: 12),
+                Expanded(child: cardFlagged),
+                const SizedBox(width: 12),
+                Expanded(child: cardHighRisk),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // Controls Row: Slider Threshold & Search (Responsive LayoutBuilder)
         AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Column(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.tune_rounded, size: 20, color: AppColors.ink),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Similarity Threshold: ${(_similarityThreshold * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                  const Spacer(),
-                  Text(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 420;
+                  final titleWidget = Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 18, color: AppColors.ink),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'Similarity Threshold: ${(_similarityThreshold * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  );
+                  final countWidget = Text(
                     'Showing ${filteredReports.length} of $totalCount students',
                     style: const TextStyle(fontSize: 12, color: AppColors.muted),
-                  ),
-                ],
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        titleWidget,
+                        const SizedBox(height: 4),
+                        countWidget,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: titleWidget),
+                      const SizedBox(width: 8),
+                      countWidget,
+                    ],
+                  );
+                },
               ),
               Slider(
                 value: _similarityThreshold,
@@ -1044,83 +1108,167 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Leaderboard Table
-        AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: const BoxDecoration(
-                  color: AppColors.paper,
-                  border: Border(bottom: BorderSide(color: AppColors.line)),
-                ),
-                child: const Row(
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: Text('Student', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text('Max Score', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    ),
-                    Expanded(
-                      flex: 4,
-                      child: Text('Copied Mostly From', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text('Status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-                    ),
-                    SizedBox(width: 170, child: Text('Actions', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
-                  ],
-                ),
-              ),
-              if (filteredReports.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(
-                    child: Text(
-                      'No students match the current threshold filter.',
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredReports.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.line),
-                  itemBuilder: (context, index) {
-                    final item = filteredReports[index];
-                    final isHigh = item.maxScore >= 0.60;
-                    final isMedium = item.maxScore >= 0.40;
+        // Leaderboard: Responsive Card List on mobile, Table on desktop
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isMobile = constraints.maxWidth < 640;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            if (isMobile) {
+              return AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: const BoxDecoration(
+                        color: AppColors.paper,
+                        border: Border(bottom: BorderSide(color: AppColors.line)),
+                      ),
                       child: Row(
                         children: [
-                          Expanded(
-                            flex: 4,
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 14,
-                                  backgroundColor: isHigh
-                                      ? AppColors.high.withValues(alpha: 0.15)
-                                      : isMedium
-                                          ? AppColors.review.withValues(alpha: 0.15)
-                                          : AppColors.low.withValues(alpha: 0.15),
-                                  child: Icon(
-                                    isHigh
-                                        ? Icons.dangerous_outlined
-                                        : isMedium
-                                            ? Icons.warning_amber_rounded
-                                            : Icons.check,
-                                    size: 14,
+                          const Icon(Icons.leaderboard_outlined, size: 18, color: AppColors.brand),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Student Plagiarism Reports',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                            ),
+                          ),
+                          Text(
+                            '${filteredReports.length} reports',
+                            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (filteredReports.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            'No students match the current threshold filter.',
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredReports.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.line),
+                        itemBuilder: (context, index) {
+                          return _buildMobileStudentCard(filteredReports[index], appState);
+                        },
+                      ),
+                  ],
+                ),
+              );
+            }
+
+            // Desktop / Tablet 5-Column Table
+            return AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: const BoxDecoration(
+                      color: AppColors.paper,
+                      border: Border(bottom: BorderSide(color: AppColors.line)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: Text('Student', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('Max Score', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                        Expanded(
+                          flex: 4,
+                          child: Text('Copied Mostly From', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Text('Status', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                        ),
+                        SizedBox(width: 170, child: Text('Actions', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))),
+                      ],
+                    ),
+                  ),
+                  if (filteredReports.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          'No students match the current threshold filter.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredReports.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.line),
+                      itemBuilder: (context, index) {
+                        final item = filteredReports[index];
+                        final isHigh = item.maxScore >= 0.60;
+                        final isMedium = item.maxScore >= 0.40;
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundColor: isHigh
+                                          ? AppColors.high.withValues(alpha: 0.15)
+                                          : isMedium
+                                              ? AppColors.review.withValues(alpha: 0.15)
+                                              : AppColors.low.withValues(alpha: 0.15),
+                                      child: Icon(
+                                        isHigh
+                                            ? Icons.dangerous_outlined
+                                            : isMedium
+                                                ? Icons.warning_amber_rounded
+                                                : Icons.check,
+                                        size: 14,
+                                        color: isHigh
+                                            ? AppColors.high
+                                            : isMedium
+                                                ? AppColors.review
+                                                : AppColors.low,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        item.studentName,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  '${(item.maxScore * 100).toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
                                     color: isHigh
                                         ? AppColors.high
                                         : isMedium
@@ -1128,141 +1276,251 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
                                             : AppColors.low,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(
+                              ),
+                              Expanded(
+                                flex: 4,
+                                child: Text(
+                                  item.topPeerName,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.text),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isHigh
+                                        ? AppColors.high.withValues(alpha: 0.1)
+                                        : isMedium
+                                            ? AppColors.review.withValues(alpha: 0.1)
+                                            : AppColors.low.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
                                   child: Text(
-                                    item.studentName,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
-                                    overflow: TextOverflow.ellipsis,
+                                    isHigh
+                                        ? 'High Risk'
+                                        : isMedium
+                                            ? 'Review'
+                                            : 'Low Risk',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isHigh
+                                          ? AppColors.high
+                                          : isMedium
+                                              ? AppColors.review
+                                              : AppColors.low,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              '${(item.maxScore * 100).toStringAsFixed(1)}%',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 14,
-                                color: isHigh
-                                    ? AppColors.high
-                                    : isMedium
-                                        ? AppColors.review
-                                        : AppColors.low,
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 4,
-                            child: Text(
-                              item.topPeerName,
-                              style: const TextStyle(fontSize: 13, color: AppColors.text),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isHigh
-                                    ? AppColors.high.withValues(alpha: 0.1)
-                                    : isMedium
-                                        ? AppColors.review.withValues(alpha: 0.1)
-                                        : AppColors.low.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                isHigh
-                                    ? 'High Risk'
-                                    : isMedium
-                                        ? 'Review'
-                                        : 'Low Risk',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: isHigh
-                                      ? AppColors.high
-                                      : isMedium
-                                          ? AppColors.review
-                                          : AppColors.low,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 170,
-                            child: Row(
-                              children: [
-                                OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  child: const Text('Inspect', style: TextStyle(fontSize: 12)),
-                                  onPressed: () {
-                                    // Retrieve matched comparison safely from cache or create fallback
-                                    ComparisonResult? matchedComparison =
-                                        _cachedComparisonMap[item.studentId] ??
-                                        _cachedComparisonMap[item.studentName];
-
-                                    matchedComparison ??= appState.results.where((r) =>
-                                        r.docAId == item.studentId ||
-                                        r.docBId == item.studentId ||
-                                        r.docAName == item.studentName ||
-                                        r.docBName == item.studentName ||
-                                        r.docAName == item.topPeerName ||
-                                        r.docBName == item.topPeerName,
-                                    ).firstOrNull;
-
-                                    matchedComparison ??= (appState.results.isNotEmpty ? appState.results.first : null);
-
-                                    matchedComparison ??= ComparisonResult(
-                                      docAId: item.studentId,
-                                      docBId: 'peer_${item.studentId}',
-                                      docAName: item.studentName,
-                                      docBName: item.topPeerName,
-                                      shingleSimilarity: item.maxScore,
-                                      cosineSimilarity: item.maxScore,
-                                      overallScore: item.maxScore,
-                                      matchedRangesA: const [],
-                                      matchedRangesB: const [],
-                                    );
-
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => DetailScreen(result: matchedComparison!),
+                              SizedBox(
+                                width: 170,
+                                child: Row(
+                                  children: [
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                        visualDensity: VisualDensity.compact,
                                       ),
-                                    );
-                                  },
+                                      child: const Text('Inspect', style: TextStyle(fontSize: 12)),
+                                      onPressed: () => _inspectStudentMatch(item, appState),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(Icons.outgoing_mail, size: 18, color: AppColors.brand),
+                                      tooltip: 'Request Re-upload from Student',
+                                      onPressed: () => _openReuploadDialog(
+                                        context: context,
+                                        appState: appState,
+                                        studentId: item.studentId,
+                                        studentName: item.studentName,
+                                        assignmentTag: _tagController.text.trim(),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 6),
-                                IconButton(
-                                  icon: const Icon(Icons.outgoing_mail, size: 18, color: AppColors.brand),
-                                  tooltip: 'Request Re-upload from Student',
-                                  onPressed: () => _openReuploadDialog(
-                                    context: context,
-                                    appState: appState,
-                                    studentId: item.studentId,
-                                    studentName: item.studentName,
-                                    assignmentTag: _tagController.text.trim(),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            );
+          },
         ),
       ],
+    );
+  }
+
+  Widget _buildMobileStudentCard(StudentReport item, AppState appState) {
+    final isHigh = item.maxScore >= 0.60;
+    final isMedium = item.maxScore >= 0.40;
+    final riskColor = isHigh ? AppColors.high : (isMedium ? AppColors.review : AppColors.low);
+    final riskLabel = isHigh ? 'High Risk' : (isMedium ? 'Review' : 'Low Risk');
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: riskColor.withValues(alpha: 0.15),
+                child: Icon(
+                  isHigh
+                      ? Icons.dangerous_outlined
+                      : isMedium
+                          ? Icons.warning_amber_rounded
+                          : Icons.check,
+                  size: 14,
+                  color: riskColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.studentName,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: riskColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: riskColor.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  '${(item.maxScore * 100).toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                    color: riskColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.people_outline, size: 14, color: AppColors.muted),
+              const SizedBox(width: 6),
+              Expanded(
+                child: RichText(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 12.5, color: AppColors.text),
+                    children: [
+                      const TextSpan(text: 'Matched with: ', style: TextStyle(color: AppColors.muted)),
+                      TextSpan(
+                        text: item.topPeerName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: riskColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  riskLabel,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: riskColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.search, size: 15),
+                  label: const Text('Inspect Match', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _inspectStudentMatch(item, appState),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: AppColors.brand,
+                  ),
+                  icon: const Icon(Icons.outgoing_mail, size: 15),
+                  label: const Text('Notify', style: TextStyle(fontSize: 12)),
+                  onPressed: () => _openReuploadDialog(
+                    context: context,
+                    appState: appState,
+                    studentId: item.studentId,
+                    studentName: item.studentName,
+                    assignmentTag: _tagController.text.trim(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _inspectStudentMatch(StudentReport item, AppState appState) {
+    // Retrieve matched comparison safely from cache or create fallback
+    ComparisonResult? matchedComparison =
+        _cachedComparisonMap[item.studentId] ??
+        _cachedComparisonMap[item.studentName];
+
+    matchedComparison ??= appState.results.where((r) =>
+        r.docAId == item.studentId ||
+        r.docBId == item.studentId ||
+        r.docAName == item.studentName ||
+        r.docBName == item.studentName ||
+        r.docAName == item.topPeerName ||
+        r.docBName == item.topPeerName,
+    ).firstOrNull;
+
+    matchedComparison ??= (appState.results.isNotEmpty ? appState.results.first : null);
+
+    matchedComparison ??= ComparisonResult(
+      docAId: item.studentId,
+      docBId: 'peer_${item.studentId}',
+      docAName: item.studentName,
+      docBName: item.topPeerName,
+      shingleSimilarity: item.maxScore,
+      cosineSimilarity: item.maxScore,
+      overallScore: item.maxScore,
+      matchedRangesA: const [],
+      matchedRangesB: const [],
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DetailScreen(result: matchedComparison!),
+      ),
     );
   }
 
@@ -1274,39 +1532,46 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
     required IconData icon,
   }) {
     return AppCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: color,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-              ),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 11, color: AppColors.muted),
-              ),
-            ],
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 10, color: AppColors.muted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),

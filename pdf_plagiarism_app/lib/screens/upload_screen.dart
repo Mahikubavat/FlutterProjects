@@ -159,8 +159,35 @@ class _UploadScreenState extends State<UploadScreen> {
         );
       }
       if (errors.isNotEmpty && mounted) {
+        final hasScanOrRenderIssue = errors.any((e) =>
+            e.contains('PlatformException') ||
+            e.contains('channel-error') ||
+            e.contains('Unable to open PDF') ||
+            e.contains('page has no selectable text') ||
+            e.contains('OCR fallback error'));
+        final message = hasScanOrRenderIssue
+            ? 'Notice: Document contains scanned pages without selectable text. Text was extracted from digital pages.'
+            : 'Notice: Some pages could not be processed. Text was extracted where available.';
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('OCR errors: ${errors.take(2).join(' | ')}')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(fontSize: 13, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.ink,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } finally {
@@ -353,25 +380,34 @@ class _UploadScreenState extends State<UploadScreen> {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   child: Row(
                     children: [
-                      const Icon(Icons.notifications_active_outlined, color: AppColors.brand),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Notifications & Alerts',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                      const Icon(Icons.notifications_active_outlined, color: AppColors.brand, size: 20),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Notifications & Alerts',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
                       ),
-                      const Spacer(),
-                      if (notifications.any((n) => !n.isRead))
+                      if (notifications.any((n) => !n.isRead)) ...[
+                        const SizedBox(width: 8),
                         TextButton(
-                          child: const Text('Mark all as read'),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          child: const Text('Mark all as read', style: TextStyle(fontSize: 12.5)),
                           onPressed: () {
                             for (final n in notifications) {
                               appState.markNotificationAsRead(n.id);
                             }
                           },
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -610,42 +646,73 @@ class _UploadScreenState extends State<UploadScreen> {
       child: Row(
         children: [
           // User Avatar & Greeting
-          InkWell(
-            onTap: () => MainNavigationShell.goToProfile(context),
-            borderRadius: BorderRadius.circular(24),
-            child: Row(
-              children: [
-                _UserAvatar(user: currentUser, radius: 18),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _getGreeting(),
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w500,
-                      ),
+          Expanded(
+            child: InkWell(
+              onTap: () => MainNavigationShell.goToProfile(context),
+              borderRadius: BorderRadius.circular(24),
+              child: Row(
+                children: [
+                  _UserAvatar(user: currentUser, radius: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _getGreeting(),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                currentUser?.displayName.isNotEmpty == true
+                                    ? currentUser!.displayName
+                                    : currentUser?.email.split('@').first ?? 'Instructor',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.text,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isAdmin
+                                    ? AppColors.brand.withValues(alpha: 0.08)
+                                    : AppColors.muted.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isAdmin ? 'ADMIN' : 'STUDENT',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: isAdmin ? AppColors.brand : AppColors.muted,
+                                  letterSpacing: 0.6,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    Text(
-                      currentUser?.displayName.isNotEmpty == true
-                          ? currentUser!.displayName
-                          : currentUser?.email.split('@').first ?? 'Instructor',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.text,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
 
           // Notification Bell
           IconButton(
@@ -662,24 +729,28 @@ class _UploadScreenState extends State<UploadScreen> {
             ),
             onPressed: () => _showNotificationsSheet(context, appState),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
 
           // Quick Upload '+' Button (matching Design 1)
           Material(
             color: AppColors.brand,
-            borderRadius: BorderRadius.circular(24),
-            elevation: 2,
-            child: InkWell(
-              onTap: () => _showQuickUploadSheet(context),
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 22,
+            borderRadius: BorderRadius.circular(20),
+            elevation: 1,
+            shadowColor: AppColors.brand.withValues(alpha: 0.3),
+            child: Tooltip(
+              message: 'Upload Assignment',
+              child: InkWell(
+                onTap: () => _showQuickUploadSheet(context),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -719,7 +790,7 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  /// Hero Card with Forest Emerald gradient and Circular Integrity Gauge (Design 1)
+  /// Hero Card with Forest Emerald gradient, circular integrity ring gauge, and dual-layer metrics
   Widget _buildHeroProgressCard(List<AssignmentDocument> documents, bool isAdmin) {
     final total = documents.length;
 
@@ -745,114 +816,186 @@ class _UploadScreenState extends State<UploadScreen> {
       return Container(
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+            colors: [Color(0xFF09281E), Color(0xFF133E30)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.mint.withValues(alpha: 0.16),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.heroGradientStart.withValues(alpha: 0.35),
+              color: const Color(0xFF09281E).withValues(alpha: 0.35),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(22),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Circular Progress Indicator Gauge (Left)
-            SizedBox(
-              width: 100,
-              height: 100,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 90,
-                    height: 90,
-                    child: CircularProgressIndicator(
-                      value: total == 0 ? 0.0 : 1.0,
-                      strokeWidth: 9,
-                      backgroundColor: Colors.white.withValues(alpha: 0.15),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.mint),
-                    ),
-                  ),
-                  Column(
+            // Top Header: Category Title + Submissions Pill
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '$total',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const Text(
-                        'FILES',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.mint,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 22),
-
-            // Overview Stats (Right)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Submission Portfolio',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
+                          color: AppColors.mint.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        child: const Icon(
+                          Icons.folder_special_rounded,
+                          size: 15,
+                          color: AppColors.mint,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Flexible(
                         child: Text(
-                          '$total Uploaded',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.mint,
+                          'Submission Portfolio',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildHeroStatPill('PDF Files', '$pdfCount', Colors.white10, Colors.white),
-                      const SizedBox(width: 8),
-                      _buildHeroStatPill('Scanned', '$imageCount', Colors.white10, Colors.white),
-                      const SizedBox(width: 8),
-                      _buildHeroStatPill('Total Words', wordsFormatted, Colors.white10, Colors.white),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: total == 0 ? Colors.white38 : AppColors.mint,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$total Uploaded',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Middle: Ring Gauge + Status Description
+            Row(
+              children: [
+                SizedBox(
+                  width: 78,
+                  height: 78,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: CircularProgressIndicator(
+                          value: total == 0 ? 0.0 : 1.0,
+                          strokeWidth: 7.5,
+                          backgroundColor: Colors.white.withValues(alpha: 0.12),
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.mint),
+                        ),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$total',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const Text(
+                            'FILES',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.mint,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        total == 0 ? 'Portfolio Ready' : '$total Assignment(s) Uploaded',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        total == 0
+                            ? 'Upload assignments to check formatting and stage them for evaluation.'
+                            : 'All uploaded files are preserved in your secure workspace.',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.35,
+                          color: Colors.white.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Bottom: 3 Full-Width Stat Pills
+            Row(
+              children: [
+                _buildHeroStatPill('PDF Files', '$pdfCount', Colors.white70),
+                const SizedBox(width: 8),
+                _buildHeroStatPill('Scanned', '$imageCount', AppColors.mint),
+                const SizedBox(width: 8),
+                _buildHeroStatPill('Total Words', wordsFormatted, const Color(0xFFFBBF24)),
+              ],
             ),
           ],
         ),
@@ -887,148 +1030,242 @@ class _UploadScreenState extends State<UploadScreen> {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+          colors: [Color(0xFF09281E), Color(0xFF133E30)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.mint.withValues(alpha: 0.16),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.heroGradientStart.withValues(alpha: 0.35),
+            color: const Color(0xFF09281E).withValues(alpha: 0.35),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(22),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Circular Progress Ring Gauge (Left)
-          SizedBox(
-            width: 100,
-            height: 100,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 90,
-                  height: 90,
-                  child: CircularProgressIndicator(
-                    value: total == 0 ? 1.0 : (cleanPercentage / 100),
-                    strokeWidth: 9,
-                    backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.mint),
-                  ),
-                ),
-                Column(
+          // Top Header: Category Title + Submissions Pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '$cleanPercentage%',
-                      style: const TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const Text(
-                      'CLEAN',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.mint,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 22),
-
-          // Overview Stats (Right)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Cohort Integrity",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: AppColors.mint.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        size: 15,
+                        color: AppColors.mint,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Flexible(
                       child: Text(
-                        '$total Submissions',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.mint,
+                        "Cohort Integrity",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildHeroStatPill('AI-Polished', '$aiEdited', AppColors.aiEditedBg, const Color(0xFF0284C7)),
-                    const SizedBox(width: 8),
-                    _buildHeroStatPill('AI-Generated', '$aiGenerated', AppColors.aiGeneratedBg, AppColors.high),
-                    const SizedBox(width: 8),
-                    _buildHeroStatPill('Original', '$humanClean', AppColors.mintLight, AppColors.brand),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: total == 0 ? Colors.white38 : AppColors.mint,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$total Submissions',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Middle: Ring Gauge + Status Description
+          Row(
+            children: [
+              SizedBox(
+                width: 78,
+                height: 78,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      height: 72,
+                      child: CircularProgressIndicator(
+                        value: total == 0 ? 1.0 : (cleanPercentage / 100),
+                        strokeWidth: 7.5,
+                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.mint),
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$cleanPercentage%',
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const Text(
+                          'CLEAN',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.mint,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      total == 0
+                          ? 'Screening Ready'
+                          : atRiskCount == 0
+                              ? 'Optimal Integrity'
+                              : '$atRiskCount Flagged for Review',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      total == 0
+                          ? 'Upload student documents to begin dual-layer AI and pairwise plagiarism screening.'
+                          : atRiskCount == 0
+                              ? 'All current submissions match original human-authored writing standards.'
+                              : 'Synthetic AI patterns detected in $atRiskCount document(s).',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.35,
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Bottom: 3 Full-Width Stat Pills
+          Row(
+            children: [
+              _buildHeroStatPill('AI-Polished', '$aiEdited', const Color(0xFF38BDF8)),
+              const SizedBox(width: 8),
+              _buildHeroStatPill('AI-Generated', '$aiGenerated', const Color(0xFFFB7185)),
+              const SizedBox(width: 8),
+              _buildHeroStatPill('Original', '$humanClean', AppColors.mint),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHeroStatPill(String label, String count, Color bgColor, Color textColor) {
+  Widget _buildHeroStatPill(String label, String count, Color indicatorColor) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Column(
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: indicatorColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
             Text(
               count,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+                fontSize: 16.5,
               ),
             ),
           ],
@@ -1090,7 +1327,7 @@ class _UploadScreenState extends State<UploadScreen> {
           child: Row(
             children: isAdmin
                 ? [
-                    _buildFilterPill('All', 'all', allCount),
+                    _buildFilterPill('All', 'all', allCount, icon: Icons.layers_outlined),
                     const SizedBox(width: 8),
                     _buildFilterPill(
                       'Needs Review',
@@ -1099,6 +1336,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           d.aiClassification == AiAuthorshipType.aiGenerated.id ||
                           (d.aiSyntheticScore ?? 0) >= 0.50).length,
                       alertColor: AppColors.high,
+                      icon: Icons.warning_amber_rounded,
                     ),
                     const SizedBox(width: 8),
                     _buildFilterPill(
@@ -1108,6 +1346,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           d.aiClassification == AiAuthorshipType.aiEdited.id ||
                           (d.aiEditingScore ?? 0) >= 0.25).length,
                       alertColor: const Color(0xFF0284C7),
+                      icon: Icons.auto_awesome_outlined,
                     ),
                     const SizedBox(width: 8),
                     _buildFilterPill(
@@ -1117,6 +1356,7 @@ class _UploadScreenState extends State<UploadScreen> {
                           d.aiClassification == AiAuthorshipType.aiGenerated.id ||
                           (d.aiSyntheticScore ?? 0) >= 0.50).length,
                       alertColor: AppColors.high,
+                      icon: Icons.psychology_outlined,
                     ),
                     const SizedBox(width: 8),
                     _buildFilterPill(
@@ -1126,16 +1366,18 @@ class _UploadScreenState extends State<UploadScreen> {
                           d.aiClassification == AiAuthorshipType.humanOriginal.id ||
                           (d.aiClassification == null && (d.aiSyntheticScore ?? 0) < 0.30)).length,
                       alertColor: AppColors.low,
+                      icon: Icons.check_circle_outline_rounded,
                     ),
                   ]
                 : [
-                    _buildFilterPill('All Files', 'all', allCount),
+                    _buildFilterPill('All Files', 'all', allCount, icon: Icons.layers_outlined),
                     const SizedBox(width: 8),
                     _buildFilterPill(
                       'PDF Documents',
                       'pdf',
                       documents.where((d) => d.fileName.toLowerCase().endsWith('.pdf')).length,
                       alertColor: Colors.red.shade700,
+                      icon: Icons.picture_as_pdf_outlined,
                     ),
                     const SizedBox(width: 8),
                     _buildFilterPill(
@@ -1143,6 +1385,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       'image',
                       documents.where((d) => !d.fileName.toLowerCase().endsWith('.pdf')).length,
                       alertColor: AppColors.brand,
+                      icon: Icons.image_outlined,
                     ),
                   ],
           ),
@@ -1195,7 +1438,13 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  Widget _buildFilterPill(String title, String key, int count, {Color? alertColor}) {
+  Widget _buildFilterPill(
+    String title,
+    String key,
+    int count, {
+    Color? alertColor,
+    IconData? icon,
+  }) {
     final isSelected = _activeFilter == key;
 
     return InkWell(
@@ -1203,7 +1452,7 @@ class _UploadScreenState extends State<UploadScreen> {
       borderRadius: BorderRadius.circular(22),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.brand : Colors.white,
           borderRadius: BorderRadius.circular(22),
@@ -1214,7 +1463,7 @@ class _UploadScreenState extends State<UploadScreen> {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.brand.withValues(alpha: 0.2),
+                    color: AppColors.brand.withValues(alpha: 0.22),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -1224,6 +1473,14 @@ class _UploadScreenState extends State<UploadScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.white : (alertColor ?? AppColors.muted),
+              ),
+              const SizedBox(width: 5),
+            ],
             Text(
               title,
               style: TextStyle(
@@ -1237,7 +1494,7 @@ class _UploadScreenState extends State<UploadScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.2)
+                    ? Colors.white.withValues(alpha: 0.22)
                     : (alertColor?.withValues(alpha: 0.12) ?? AppColors.paper),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -1343,7 +1600,8 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             doc.ownerName ?? 'Student Submission',
@@ -1430,43 +1688,51 @@ class _UploadScreenState extends State<UploadScreen> {
             Row(
               children: [
                 if (isAdmin)
-                  _AiAuthorshipChip(
-                    document: doc,
-                    onTap: () => AiAuthorshipDialog.show(
-                      context,
+                  Flexible(
+                    child: _AiAuthorshipChip(
                       document: doc,
-                      onRerunCheck: () => appState.runAiCheck(doc.id),
+                      onTap: () => AiAuthorshipDialog.show(
+                        context,
+                        document: doc,
+                        onRerunCheck: () => appState.runAiCheck(doc.id),
+                      ),
                     ),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.ink.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
-                          size: 13,
-                          color: isPdf ? Colors.red.shade700 : AppColors.brand,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          isPdf ? 'PDF Submission' : 'Scanned Image OCR',
-                          style: const TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.muted,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.ink.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.line),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isPdf ? Icons.picture_as_pdf_outlined : Icons.image_outlined,
+                            size: 13,
+                            color: isPdf ? Colors.red.shade700 : AppColors.brand,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              isPdf ? 'PDF Submission' : 'Scanned Image OCR',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
@@ -1489,18 +1755,114 @@ class _UploadScreenState extends State<UploadScreen> {
     );
   }
 
-  /// Empty State with clear calls to action
+  /// Empty State with clear calls to action and compact responsive spacing
   Widget _buildEmptyState(bool isAdmin) {
-    return EmptyState(
-      icon: isAdmin ? Icons.folder_open_outlined : Icons.cloud_upload_outlined,
-      title: isAdmin ? 'No Submissions Yet' : 'No Documents Uploaded',
-      message: isAdmin
-          ? 'Uploaded documents from students will appear here automatically.'
-          : 'Upload a PDF, research document, or scanned image to start, or load sample assignments.',
-      action: FilledButton.icon(
-        icon: const Icon(Icons.upload_file, size: 18),
-        label: const Text('Upload Document'),
-        onPressed: () => _showQuickUploadSheet(context),
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.line),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: AppColors.mint.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.mint.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(
+                isAdmin ? Icons.folder_open_outlined : Icons.cloud_upload_outlined,
+                size: 30,
+                color: AppColors.brand,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              isAdmin ? 'No Submissions Yet' : 'No Documents Uploaded',
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                isAdmin
+                    ? 'Uploaded documents from students will appear here automatically.'
+                    : 'Upload a PDF, research document, or scanned image to start, or load sample assignments.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  height: 1.4,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.brand,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.upload_file, size: 18),
+                  label: const Text('Upload Document', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  onPressed: () => _showQuickUploadSheet(context),
+                ),
+                if (isAdmin)
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.brand,
+                      side: const BorderSide(color: AppColors.line, width: 1.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.science_outlined, size: 17),
+                    label: const Text('Load Demo Sample Set', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    onPressed: () {
+                      context.read<AppState>().loadSampleDocuments(SampleDocuments.all);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Sample documents loaded successfully!'),
+                          backgroundColor: AppColors.brand,
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1597,12 +1959,14 @@ class _UploadScreenState extends State<UploadScreen> {
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: SafeArea(
         top: false,
-        child: Row(
-          children: [
-            Container(
+        child: LayoutBuilder(
+          builder: (_, constraints) {
+            final isNarrow = constraints.maxWidth < 460;
+
+            final selectionBadge = Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: selectedCount >= 2
@@ -1621,27 +1985,31 @@ class _UploadScreenState extends State<UploadScreen> {
                   color: selectedCount >= 2 ? AppColors.brand : AppColors.muted,
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            TextButton(
+            );
+
+            final clearBtn = TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              ),
               onPressed: appState.clearDocumentSelection,
               child: const Text('Clear'),
-            ),
-            const Spacer(),
-            OutlinedButton.icon(
+            );
+
+            final batchBtn = OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               icon: const Icon(Icons.hub_outlined, size: 16, color: AppColors.brand),
-              label: const Text('Batch Lab'),
+              label: const Text('Batch Lab', style: TextStyle(fontSize: 12.5)),
               onPressed: () => MainNavigationShell.switchTab(context, 1),
-            ),
-            const SizedBox(width: 10),
-            FilledButton.icon(
+            );
+
+            final compareBtn = FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: canCompare ? AppColors.brand : Colors.grey.shade400,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               icon: appState.isProcessing
@@ -1650,10 +2018,10 @@ class _UploadScreenState extends State<UploadScreen> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.compare_arrows_rounded, size: 18),
+                  : const Icon(Icons.compare_arrows_rounded, size: 16),
               label: Text(
                 appState.isProcessing ? 'Analyzing…' : 'Compare 1-to-1',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
               ),
               onPressed: canCompare
                   ? () async {
@@ -1662,8 +2030,43 @@ class _UploadScreenState extends State<UploadScreen> {
                       MainNavigationShell.switchTab(context, 2);
                     }
                   : null,
-            ),
-          ],
+            );
+
+            if (isNarrow) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      selectionBadge,
+                      const SizedBox(width: 8),
+                      clearBtn,
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(child: batchBtn),
+                      const SizedBox(width: 8),
+                      Expanded(child: compareBtn),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                selectionBadge,
+                const SizedBox(width: 10),
+                clearBtn,
+                const Spacer(),
+                batchBtn,
+                const SizedBox(width: 10),
+                compareBtn,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1679,6 +2082,7 @@ class _AiAuthorshipChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasScreeningData = document.aiClassification != null || document.aiProbability != null;
     final classification = AiAuthorshipType.fromId(document.aiClassification);
     final synthetic = document.aiSyntheticScore ?? 0.0;
     final editing = document.aiEditingScore ?? 0.0;
@@ -1687,27 +2091,33 @@ class _AiAuthorshipChip extends StatelessWidget {
     String label;
     IconData icon;
 
-    switch (classification) {
-      case AiAuthorshipType.aiEdited:
-        color = const Color(0xFF0284C7); // Sky Blue
-        label = 'AI-Polished: ${(editing * 100).round()}% (Human Draft)';
-        icon = Icons.edit_note_rounded;
-        break;
-      case AiAuthorshipType.aiGenerated:
-        color = AppColors.high;
-        label = 'AI-Generated: ${(synthetic * 100).round()}%';
-        icon = Icons.smart_toy_outlined;
-        break;
-      case AiAuthorshipType.hybridCoCreated:
-        color = AppColors.review;
-        label = 'Hybrid: ${(synthetic * 100).round()}% Gen • ${(editing * 100).round()}% Edit';
-        icon = Icons.auto_awesome_motion_outlined;
-        break;
-      case AiAuthorshipType.humanOriginal:
-        color = AppColors.low;
-        label = 'Human Original';
-        icon = Icons.person_outline_rounded;
-        break;
+    if (!hasScreeningData) {
+      color = AppColors.brand;
+      label = 'Run AI Screening';
+      icon = Icons.auto_awesome_outlined;
+    } else {
+      switch (classification) {
+        case AiAuthorshipType.aiEdited:
+          color = const Color(0xFF0284C7); // Sky Blue
+          label = 'AI-Polished: ${(editing * 100).round()}% (Human Draft)';
+          icon = Icons.edit_note_rounded;
+          break;
+        case AiAuthorshipType.aiGenerated:
+          color = AppColors.high;
+          label = 'AI-Generated: ${(synthetic * 100).round()}%';
+          icon = Icons.smart_toy_outlined;
+          break;
+        case AiAuthorshipType.hybridCoCreated:
+          color = AppColors.review;
+          label = 'Hybrid: ${(synthetic * 100).round()}% Gen • ${(editing * 100).round()}% Edit';
+          icon = Icons.auto_awesome_motion_outlined;
+          break;
+        case AiAuthorshipType.humanOriginal:
+          color = AppColors.low;
+          label = 'Human Original';
+          icon = Icons.person_outline_rounded;
+          break;
+      }
     }
 
     return Tooltip(
@@ -1727,12 +2137,16 @@ class _AiAuthorshipChip extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: color),
               const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
                 ),
               ),
               const SizedBox(width: 3),
@@ -1769,13 +2183,32 @@ class _UserAvatar extends StatelessWidget {
                 : 'U')
         .toUpperCase();
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: AppColors.brand.withValues(alpha: 0.15),
-      foregroundColor: AppColors.brand,
+    return Container(
+      width: radius * 2,
+      height: radius * 2,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            AppColors.brand.withValues(alpha: 0.14),
+            AppColors.mint.withValues(alpha: 0.28),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: AppColors.brand.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+      ),
+      alignment: Alignment.center,
       child: Text(
         initial,
-        style: TextStyle(fontSize: radius * 0.9, fontWeight: FontWeight.w800),
+        style: TextStyle(
+          fontSize: radius * 0.9,
+          fontWeight: FontWeight.w800,
+          color: AppColors.brand,
+        ),
       ),
     );
   }
