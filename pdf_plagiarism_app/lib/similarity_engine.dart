@@ -1,18 +1,56 @@
-import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class SimilarityEngine {
-  // 1. Reads raw bytes from a PDF and converts them to plain text
-  static String extractTextFromPdf(File pdfFile) {
-    final PdfDocument document = PdfDocument(inputBytes: pdfFile.readAsBytesSync());
-    final String text = PdfTextExtractor(document).extractText();
-    document.dispose();
-    return text;
+  /// Extracts text from image file using ML Kit OCR (supported on Android and iOS)
+  static Future<String> extractTextFromImagePath(String filePath) async {
+    try {
+      if (kIsWeb) {
+        throw UnsupportedError("OCR image recognition via Google ML Kit is only supported on mobile devices (Android/iOS).");
+      }
+
+      final inputImage = InputImage.fromFilePath(filePath);
+      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+
+      return recognizedText.text
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), ' ')
+          .replaceAll(RegExp(r'[ \t]+'), ' ')
+          .trim();
+    } catch (e) {
+      debugPrint("Error extracting text from image with OCR: $e");
+      rethrow;
+    }
   }
 
-  // 2. Compares word frequencies between two text strings
+  /// Extracts PDF text and merges fragmented lines into natural paragraphs
+  static String extractTextFromPdfBytes(Uint8List bytes) {
+    try {
+      final PdfDocument document = PdfDocument(inputBytes: bytes);
+      final String text = PdfTextExtractor(document).extractText();
+      document.dispose();
+
+      return text
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n')
+          .replaceAll(RegExp(r'(?<!\n)\n(?!\n)'), ' ')
+          .replaceAll(RegExp(r'[ \t]+'), ' ')
+          .trim();
+    } catch (e) {
+      debugPrint("Error reading PDF bytes: $e");
+      return "";
+    }
+  }
+
+  /// Calculates Cosine Similarity Percentage
   static double calculateCosineSimilarity(String text1, String text2) {
+    if (text1.isEmpty || text2.isEmpty) return 0.0;
+
     Map<String, int> getFrequencies(String text) {
       final words = text.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').split(RegExp(r'\s+'));
       final Map<String, int> freq = {};
@@ -41,5 +79,37 @@ class SimilarityEngine {
 
     if (normA == 0 || normB == 0) return 0.0;
     return (dotProduct / (sqrt(normA) * sqrt(normB))) * 100;
+  }
+
+  /// Helper to convert numbers like "05" -> "5" so they match regardless of leading zeros
+  static String normalizeWord(String word) {
+    String clean = word.toLowerCase().trim();
+    if (RegExp(r'^\d+$').hasMatch(clean)) {
+      return int.parse(clean).toString();
+    }
+    return clean;
+  }
+
+  /// Extracts shared words AND numbers, splitting hyphens and punctuation cleanly
+  static Set<String> getMatchingWords(String text1, String text2) {
+    final stopWords = {
+      'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were',
+      'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'this',
+      'that', 'it', 'as', 'be', 'has', 'have', 'had', 'not', 'you', 'we'
+    };
+
+    Set<String> extractWords(String text) {
+      return text
+      // Split by spaces, hyphens, colons, dots, and punctuation
+          .split(RegExp(r'[^\w]+'))
+          .map((w) => normalizeWord(w))
+          .where((w) => w.isNotEmpty && !stopWords.contains(w))
+          .toSet();
+    }
+
+    final words1 = extractWords(text1);
+    final words2 = extractWords(text2);
+
+    return words1.intersection(words2);
   }
 }

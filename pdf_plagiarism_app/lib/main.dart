@@ -1,66 +1,93 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'similarity_engine.dart';
+import 'package:provider/provider.dart';
 
-void main() => runApp(const MaterialApp(home: HomeScreen()));
+import 'screens/auth_screen.dart';
+import 'screens/main_navigation_shell.dart';
+import 'state/app_state.dart';
+import 'theme/app_theme.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const PlagiarismCheckerApp());
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  String _result = "Select two PDFs to compare";
-
-  Future<void> _pickAndCompare() async {
-    // Open file picker to select 2 PDFs
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-
-    if (result != null && result.files.length >= 2) {
-      File file1 = File(result.files[0].path!);
-      File file2 = File(result.files[1].path!);
-
-      // Run extraction
-      String text1 = SimilarityEngine.extractTextFromPdf(file1);
-      String text2 = SimilarityEngine.extractTextFromPdf(file2);
-
-      // Run math calculation
-      double score = SimilarityEngine.calculateCosineSimilarity(text1, text2);
-
-      setState(() {
-        _result = "Similarity Score: ${score.toStringAsFixed(2)}%";
-      });
-    } else {
-      setState(() {
-        _result = "Please select at least 2 PDF files.";
-      });
-    }
-  }
+class PlagiarismCheckerApp extends StatelessWidget {
+  const PlagiarismCheckerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("PDF Similarity Checker")),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_result, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _pickAndCompare,
-              child: const Text("Select 2 PDFs & Compare"),
-            ),
-          ],
-        ),
+    return ChangeNotifierProvider(
+      create: (_) => AppState()..initialize(),
+      child: MaterialApp(
+        title: 'Plagiarism Checker & Similarity Analyzer',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        home: const _AuthGate(),
       ),
     );
+  }
+}
+
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    if (state.isInitializing) {
+      return Scaffold(
+        backgroundColor: AppColors.paper,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.brand.withValues(alpha: 0.25),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.fact_check_outlined,
+                  color: AppColors.mint,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const SizedBox(
+                width: 26,
+                height: 26,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.brand),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Restoring your academic session & documents…',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return state.isAuthenticated ? const MainNavigationShell() : const AuthScreen();
   }
 }

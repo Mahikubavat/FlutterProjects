@@ -1,6 +1,6 @@
 {
-    "name": "pdf_plagiarism_app",
-    "short_name": "pdf_plagiarism_app",
+    "name": "plagiarism_checker",
+    "short_name": "plagiarism_checker",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

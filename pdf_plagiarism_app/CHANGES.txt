@@ -1,0 +1,29 @@
+Fixes for image + PDF text extraction
+=====================================
+Copy these files over your project (same relative paths), then run:
+    flutter clean
+    flutter pub get
+    flutter run -d chrome        (or an Android device/emulator)
+
+NEW
+  assets/tessdata/eng.traineddata     English OCR data for Android/iOS (tessdata_fast, 4 MB)
+  assets/tessdata_config.json         tells flutter_tesseract_ocr which data files exist
+
+CHANGED
+  pubspec.yaml                        declares the two assets above
+  web/index.html                      adds Tesseract.js + _extractText (needed for OCR on web)
+  android/.../AndroidManifest.xml     adds INTERNET permission (release builds / LLM APIs)
+  lib/services/pdf_service.dart       reads the PDF text layer first; Unicode letter check;
+                                      renderer opened only when OCR is needed; real error messages
+  lib/services/document_text_service.dart  failed pages no longer leave a fake "Page 1" document
+  lib/screens/detail_screen.dart      highlights drawn on cleanedText (where matches are computed)
+
+Update 2 - readable PDF text + highlighting common text
+=======================================================
+  lib/services/pdf_service.dart       rebuilds lines and paragraphs from word positions
+                                      (fixes "one word per line" text from Google Docs/Word PDFs)
+  lib/services/similarity_service.dart highlights every shared run of 4+ words (ignoring filler-only
+                                      runs) instead of only exact 8-word matches. The score is unchanged.
+  lib/screens/detail_screen.dart      legend text updated to match
+
+Documents uploaded before this update keep their old text. Delete and upload them again.
