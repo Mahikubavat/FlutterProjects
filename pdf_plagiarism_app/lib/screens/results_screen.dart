@@ -17,7 +17,6 @@ class ResultsScreen extends StatefulWidget {
 }
 
 class _ResultsScreenState extends State<ResultsScreen> {
-  bool _exporting = false;
   String _selectedFilter = 'all'; // 'all', 'high', 'review', 'low'
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -28,6 +27,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final state = context.read<AppState>();
+      state.markResultsAsSeen();
       if (state.results.isEmpty) {
         state.reloadSavedResults();
       }
@@ -50,6 +50,170 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';
     final min = dt.minute.toString().padLeft(2, '0');
     return '$m ${dt.day}, ${dt.year} • $hour:$min $ampm';
+  }
+
+  void _showExportPdfSheet(BuildContext context, AppState appState) {
+    final results = appState.results;
+    final timestamp = appState.lastAnalyzedAt ?? DateTime.now();
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (bottomSheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.line,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.brand.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.picture_as_pdf_rounded,
+                      color: AppColors.brand,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Export Plagiarism Report',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        Text(
+                          '${results.length} document comparisons ready to export',
+                          style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.paper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.line),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, size: 18, color: AppColors.muted),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Generates a comprehensive PDF report and saves it directly to your device Downloads storage.',
+                        style: TextStyle(fontSize: 11.5, color: AppColors.muted, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ExportOptionTile(
+                icon: Icons.download_rounded,
+                iconColor: AppColors.mint,
+                title: 'Save to Phone (Downloads Folder)',
+                subtitle: 'Writes report directly to /storage/emulated/0/Download',
+                onTap: () async {
+                  Navigator.pop(bottomSheetContext);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            ),
+                            SizedBox(width: 12),
+                            Text('Generating & saving report to Downloads...'),
+                          ],
+                        ),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                  try {
+                    final filePath = await ReportService.savePdfToDevice(results, timestamp);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      if (filePath != null) {
+                        final filename = filePath.split(RegExp(r"[/\\]")).last;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Saved to Downloads: $filename',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            backgroundColor: AppColors.ink,
+                            duration: const Duration(seconds: 4),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not access device Downloads folder.'),
+                            backgroundColor: AppColors.high,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error saving PDF: $e'),
+                          backgroundColor: AppColors.high,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -81,10 +245,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
         ? _formatDate(appState.lastAnalyzedAt!)
         : null;
 
+    final isNarrow = MediaQuery.sizeOf(context).width < 520;
+
     return Scaffold(
       backgroundColor: AppColors.paper,
       appBar: buildAppBar(
-        'Plagiarism & Similarity Report',
+        isNarrow ? 'Similarity Report' : 'Plagiarism & Similarity Report',
         actions: [
           if (results.isNotEmpty)
             Padding(
@@ -93,29 +259,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.ink,
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isNarrow ? 10 : 14,
+                    vertical: 8,
+                  ),
                 ),
-                icon: _exporting
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                label: const Text('Export PDF Report', style: TextStyle(fontSize: 12)),
-                onPressed: _exporting
-                    ? null
-                    : () async {
-                        setState(() => _exporting = true);
-                        try {
-                          await ReportService.generateAndShareReport(
-                            results,
-                            appState.lastAnalyzedAt ?? DateTime.now(),
-                          );
-                        } finally {
-                          if (mounted) setState(() => _exporting = false);
-                        }
-                      },
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                label: Text(
+                  isNarrow ? 'Export PDF' : 'Export PDF Report',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                onPressed: () => _showExportPdfSheet(context, appState),
               ),
             ),
         ],
@@ -690,3 +844,73 @@ class _ResultCard extends StatelessWidget {
     );
   }
 }
+
+class _ExportOptionTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ExportOptionTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.paper,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.line),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

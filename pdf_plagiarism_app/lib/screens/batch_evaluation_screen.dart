@@ -289,66 +289,155 @@ class _BatchEvaluationScreenState extends State<BatchEvaluationScreen> {
     final reasonController = TextEditingController(
       text: 'High similarity detected for $assignmentTag. Please review your work and re-upload your revised lab assignment.',
     );
+    bool isSending = false;
 
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.notification_important_outlined, color: AppColors.review),
-            const SizedBox(width: 8),
-            Text('Request Re-upload: $studentName'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'A notification will be sent to $studentName requesting a revised submission for "$assignmentTag":',
-              style: const TextStyle(fontSize: 13, color: AppColors.muted),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: reasonController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Reason / Instructions',
-                border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.review.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: AppColors.review,
+                  size: 22,
+                ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Request Re-upload',
+                      style: TextStyle(
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    Text(
+                      'Target: $studentName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'A notification will be sent to $studentName requesting a revised submission for "$assignmentTag":',
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 13, height: 1.4),
+                  decoration: InputDecoration(
+                    labelText: 'Reason / Instructions',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.line),
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: const BorderSide(color: AppColors.line),
+                    ),
+                    onPressed: isSending ? null : () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.brand,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: isSending
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send_rounded, size: 16),
+                    label: Text(
+                      isSending ? 'Sending...' : 'Send Notice',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onPressed: isSending
+                        ? null
+                        : () async {
+                            setDialogState(() => isSending = true);
+                            try {
+                              await appState.sendReuploadRequest(
+                                studentId: studentId,
+                                studentName: studentName,
+                                documentId: studentId,
+                                documentName: assignmentTag,
+                                assignmentTag: assignmentTag,
+                                reason: reasonController.text,
+                              );
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Re-upload notification successfully sent to $studentName.'),
+                                    backgroundColor: AppColors.ink,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (ctx.mounted) {
+                                setDialogState(() => isSending = false);
+                              }
+                            }
+                          },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.brand),
-            icon: const Icon(Icons.send_rounded, size: 16),
-            label: const Text('Send Notification'),
-            onPressed: () async {
-              await appState.sendReuploadRequest(
-                studentId: studentId,
-                studentName: studentName,
-                documentId: studentId,
-                documentName: assignmentTag,
-                assignmentTag: assignmentTag,
-                reason: reasonController.text,
-              );
-              if (ctx.mounted) Navigator.of(ctx).pop();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Re-upload notification successfully sent to $studentName.'),
-                    backgroundColor: AppColors.ink,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
       ),
     );
   }

@@ -37,6 +37,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    if (_currentIndex == 2) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<AppState>().markResultsAsSeen();
+      });
+    }
   }
 
   void setTab(int index) {
@@ -49,8 +54,11 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     }
     target = target.clamp(0, maxIndex);
 
-    if (target == 2 && appState.results.isEmpty) {
-      appState.reloadSavedResults();
+    if (target == 2) {
+      if (appState.results.isEmpty) {
+        appState.reloadSavedResults();
+      }
+      appState.markResultsAsSeen();
     }
 
     if (_currentIndex != target) {
@@ -69,9 +77,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final isAdmin = appState.isAdmin;
     final flaggedCount = appState.results.where((r) => r.isFlagged).length;
     final resultsCount = appState.results.length;
-    final similarityBadge = flaggedCount > 0
-        ? flaggedCount
-        : (resultsCount > 0 ? resultsCount : null);
+    final showSimilarityBadge = appState.hasUnseenResults && _currentIndex != 2;
+    final similarityBadge = showSimilarityBadge
+        ? (flaggedCount > 0 ? flaggedCount : (resultsCount > 0 ? resultsCount : null))
+        : null;
     final similarityBadgeColor = flaggedCount > 0 ? AppColors.high : AppColors.brand;
     final unreadCount = appState.unreadNotifications.length;
 

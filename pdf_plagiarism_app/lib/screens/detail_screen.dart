@@ -149,94 +149,182 @@ class _DetailScreenState extends State<DetailScreen> {
       text:
           'High similarity of ${(widget.result.overallScore * 100).toStringAsFixed(1)}% detected with peer submission. Please re-examine your submission and upload your original work.',
     );
+    bool isSending = false;
 
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Row(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          title: Row(
             children: [
-              Icon(Icons.notification_important_outlined, color: AppColors.review),
-              SizedBox(width: 8),
-              Text('Request Re-upload from Student'),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.review.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.notification_important_outlined,
+                  color: AppColors.review,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Request Re-upload',
+                  style: TextStyle(
+                    fontSize: 17.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.3,
+                    color: AppColors.text,
+                  ),
+                ),
+              ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select which student should receive a notification to re-upload their lab assignment:',
-                style: TextStyle(fontSize: 13, color: AppColors.muted),
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: selectedStudent,
-                decoration: const InputDecoration(
-                  labelText: 'Target Student',
-                  border: OutlineInputBorder(),
-                  isDense: true,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Notify student to re-examine their submission and upload their original work:',
+                  style: TextStyle(fontSize: 12.5, color: AppColors.muted, height: 1.4),
                 ),
-                items: [
-                  DropdownMenuItem(
-                    value: docA.ownerId ?? docA.id,
-                    child: Text('Student A: ${docA.fileName}'),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  initialValue: selectedStudent,
+                  decoration: InputDecoration(
+                    labelText: 'Target Student',
+                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.line),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
-                  DropdownMenuItem(
-                    value: docB.ownerId ?? docB.id,
-                    child: Text('Student B: ${docB.fileName}'),
-                  ),
-                ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setDialogState(() {
-                      selectedStudent = val;
-                      selectedDocName = val == (docA.ownerId ?? docA.id)
-                          ? docA.fileName
-                          : docB.fileName;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Instructions / Reason for Re-upload',
-                  border: OutlineInputBorder(),
+                  items: [
+                    DropdownMenuItem(
+                      value: docA.ownerId ?? docA.id,
+                      child: Text(
+                        'Student A: ${docA.fileName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: docB.ownerId ?? docB.id,
+                      child: Text(
+                        'Student B: ${docB.fileName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setDialogState(() {
+                        selectedStudent = val;
+                        selectedDocName = val == (docA.ownerId ?? docA.id)
+                            ? docA.fileName
+                            : docB.fileName;
+                      });
+                    }
+                  },
                 ),
-              ),
-            ],
+                const SizedBox(height: 14),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  style: const TextStyle(fontSize: 13, height: 1.4),
+                  decoration: InputDecoration(
+                    labelText: 'Instructions / Reason for Re-upload',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppColors.line),
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              style: FilledButton.styleFrom(backgroundColor: AppColors.brand),
-              icon: const Icon(Icons.send_rounded, size: 16),
-              label: const Text('Send Notification'),
-              onPressed: () async {
-                await appState.sendReuploadRequest(
-                  studentId: selectedStudent,
-                  studentName: selectedDocName,
-                  documentId: selectedStudent,
-                  documentName: selectedDocName,
-                  reason: reasonController.text,
-                );
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Re-upload notification sent to student for "$selectedDocName".'),
-                      backgroundColor: AppColors.ink,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: const BorderSide(color: AppColors.line),
                     ),
-                  );
-                }
-              },
+                    onPressed: isSending ? null : () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.brand,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: isSending
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send_rounded, size: 16),
+                    label: Text(
+                      isSending ? 'Sending...' : 'Send Notice',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onPressed: isSending
+                        ? null
+                        : () async {
+                            setDialogState(() => isSending = true);
+                            try {
+                              await appState.sendReuploadRequest(
+                                studentId: selectedStudent,
+                                studentName: selectedDocName,
+                                documentId: selectedStudent,
+                                documentName: selectedDocName,
+                                reason: reasonController.text,
+                              );
+                              if (ctx.mounted) Navigator.of(ctx).pop();
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'Re-upload notification sent to student for "$selectedDocName".'),
+                                    backgroundColor: AppColors.ink,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (ctx.mounted) {
+                                setDialogState(() => isSending = false);
+                              }
+                            }
+                          },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -275,43 +363,78 @@ class _DetailScreenState extends State<DetailScreen> {
       widget.result.matchedRangesB.length,
     );
 
+    final isNarrowScreen = MediaQuery.sizeOf(context).width < 520;
+
     return Scaffold(
-      appBar: buildAppBar(
-        'Comparison Details',
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        scrolledUnderElevation: 0,
+        elevation: 0,
+        centerTitle: false,
+        title: Text(
+          isNarrowScreen ? 'Comparison' : 'Comparison Details',
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            letterSpacing: -0.3,
+            color: AppColors.text,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
-          if (appState.isAdmin) ...[
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.brand,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              ),
-              icon: const Icon(Icons.outgoing_mail, size: 16),
-              label: const Text('Request Re-upload'),
-              onPressed: () => _showReuploadDialog(context, appState, docA, docB),
+          if (appState.isAdmin)
+            isNarrowScreen
+                ? IconButton(
+                    tooltip: 'Request Re-upload',
+                    icon: const Icon(Icons.outgoing_mail, color: AppColors.brand, size: 22),
+                    onPressed: () => _showReuploadDialog(context, appState, docA, docB),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.brand,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                      icon: const Icon(Icons.outgoing_mail, size: 16),
+                      label: const Text('Request Re-upload'),
+                      onPressed: () => _showReuploadDialog(context, appState, docA, docB),
+                    ),
+                  ),
+          Tooltip(
+            message: _syncScrolling ? 'Sync scrolling enabled' : 'Sync scrolling disabled',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isNarrowScreen) ...[
+                  Icon(
+                    _syncScrolling ? Icons.sync : Icons.sync_disabled,
+                    size: 18,
+                    color: _syncScrolling ? AppColors.ink : AppColors.muted,
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Sync scroll',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                  ),
+                ],
+                Transform.scale(
+                  scale: 0.8,
+                  child: Switch.adaptive(
+                    value: _syncScrolling,
+                    onChanged: (val) => setState(() => _syncScrolling = val),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
             ),
-            const SizedBox(width: 8),
-          ],
-          Row(
-            children: [
-              Icon(
-                _syncScrolling ? Icons.sync : Icons.sync_disabled,
-                size: 18,
-                color: _syncScrolling ? AppColors.ink : AppColors.muted,
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                'Sync scroll',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-              ),
-              Switch.adaptive(
-                value: _syncScrolling,
-                onChanged: (val) => setState(() => _syncScrolling = val),
-              ),
-              const SizedBox(width: 8),
-            ],
           ),
         ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.line),
+        ),
       ),
       body: PageFrame(
         maxWidth: 1400,
@@ -407,8 +530,63 @@ class _MatchNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final matchBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.match.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.amber.shade400),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Colors.amber,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            totalMatches == 0
+                ? 'No shared matches'
+                : 'Match ${currentIndex + 1} of $totalMatches',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: AppColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final prevButton = OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      icon: const Icon(Icons.arrow_upward_rounded, size: 15),
+      label: const Text('Prev', style: TextStyle(fontSize: 11.5)),
+      onPressed: totalMatches > 0 ? onPrevious : null,
+    );
+
+    final nextButton = FilledButton.icon(
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+      icon: const Icon(Icons.arrow_downward_rounded, size: 15),
+      label: const Text('Next', style: TextStyle(fontSize: 11.5)),
+      onPressed: totalMatches > 0 ? onNext : null,
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -421,70 +599,56 @@ class _MatchNavigationBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.match.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.amber.shade400),
-            ),
-            child: Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 580;
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.amber,
-                    shape: BoxShape.circle,
-                  ),
+                Row(
+                  children: [
+                    matchBadge,
+                    const Spacer(),
+                    prevButton,
+                    const SizedBox(width: 6),
+                    nextButton,
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  totalMatches == 0
-                      ? 'No shared matches'
-                      : 'Match ${currentIndex + 1} of $totalMatches',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                    color: AppColors.text,
+                if (totalMatches > 0) ...[
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Showing synchronized passage across both documents',
+                    style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
+                ],
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            totalMatches == 0
-                ? 'Documents show no common passages.'
-                : 'Showing synchronized passage across both documents',
-            style: const TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-          const Spacer(),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.arrow_upward_rounded, size: 16),
-            label: const Text('Prev', style: TextStyle(fontSize: 12)),
-            onPressed: totalMatches > 0 ? onPrevious : null,
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            icon: const Icon(Icons.arrow_downward_rounded, size: 16),
-            label: const Text('Next', style: TextStyle(fontSize: 12)),
-            onPressed: totalMatches > 0 ? onNext : null,
-          ),
-        ],
+            );
+          }
+
+          return Row(
+            children: [
+              matchBadge,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  totalMatches == 0
+                      ? 'Documents show no common passages.'
+                      : 'Showing synchronized passage across both documents',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              prevButton,
+              const SizedBox(width: 8),
+              nextButton,
+            ],
+          );
+        },
       ),
     );
   }
@@ -502,24 +666,27 @@ class _SummaryCard extends StatelessWidget {
     return AppCard(
       padding: const EdgeInsets.all(16),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ScoreRing(score: result.overallScore, color: risk.color, size: 72),
-          const SizedBox(width: 16),
+          ScoreRing(score: result.overallScore, color: risk.color, size: 68),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       '${risk.label}: ${(result.overallScore * 100).round()}% similar',
                       style: TextStyle(
                         color: risk.color,
                         fontWeight: FontWeight.w700,
-                        fontSize: 16,
+                        fontSize: 15.5,
                       ),
                     ),
-                    const SizedBox(width: 10),
                     StatPill(
                       label: '${result.matchedRangesA.length} shared matching passages',
                       color: risk.color,
@@ -587,16 +754,20 @@ class _DocumentPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Text(
-                    '$words words • ${ranges.length} matches',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.muted),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.line),
+                    ),
+                    child: Text(
+                      '$words words • ${ranges.length} matches',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.muted),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),

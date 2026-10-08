@@ -30,6 +30,7 @@ class AppState extends ChangeNotifier {
   String processingMessage = '';
   double processingProgress = 0;
   DateTime? lastAnalyzedAt;
+  DateTime? lastSeenResultsAt;
 
   final LlmSimilarityService llmService = LlmSimilarityService(
     apiKey: const String.fromEnvironment('LLM_API_KEY'),
@@ -43,6 +44,29 @@ class AppState extends ChangeNotifier {
 
   bool get isAuthenticated => currentUser != null;
   bool get isAdmin => currentUser?.role == UserRole.admin;
+
+  /// Whether there are new similarity results that have not yet been viewed.
+  bool get hasUnseenResults {
+    if (results.isEmpty) return false;
+    if (lastSeenResultsAt == null) return true;
+    if (lastAnalyzedAt != null && lastAnalyzedAt!.isAfter(lastSeenResultsAt!)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Marks current similarity results as seen so the bottom bar notification badge disappears.
+  Future<void> markResultsAsSeen() async {
+    lastSeenResultsAt = DateTime.now();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'plagiarism_last_seen_results_time',
+        lastSeenResultsAt!.toIso8601String(),
+      );
+    } catch (_) {}
+    notifyListeners();
+  }
 
   Future<void> initialize() async {
     await database.ensureInitialized();
@@ -68,6 +92,11 @@ class AppState extends ChangeNotifier {
     try {
       results = await database.getSavedResults();
       lastAnalyzedAt = await database.getSavedResultsTimestamp();
+      final prefs = await SharedPreferences.getInstance();
+      final seenStr = prefs.getString('plagiarism_last_seen_results_time');
+      if (seenStr != null) {
+        lastSeenResultsAt = DateTime.tryParse(seenStr);
+      }
     } catch (_) {}
   }
 
@@ -186,12 +215,14 @@ class AppState extends ChangeNotifier {
 
   void logout() {
     database.setActiveUserId(null);
-    SharedPreferences.getInstance().then(
-      (prefs) => prefs.remove('plagiarism_current_user_id'),
-    );
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('plagiarism_current_user_id');
+      prefs.remove('plagiarism_last_seen_results_time');
+    });
     currentUser = null;
     documents.clear();
     results = [];
+    lastSeenResultsAt = null;
     selectedDocumentIds.clear();
     notifications.clear();
     notifyListeners();
@@ -530,6 +561,11 @@ class AppState extends ChangeNotifier {
       if (saved.isNotEmpty) {
         results = saved;
         lastAnalyzedAt = await database.getSavedResultsTimestamp() ?? DateTime.now();
+        final prefs = await SharedPreferences.getInstance();
+        final seenStr = prefs.getString('plagiarism_last_seen_results_time');
+        if (seenStr != null) {
+          lastSeenResultsAt = DateTime.tryParse(seenStr);
+        }
         notifyListeners();
       }
     } catch (_) {}
