@@ -1,4 +1,4 @@
-# PDF Plagiarism Detection App 📄🔍
+# PDF Plagiarism Detection App 
 
 A cross-platform Flutter application designed for educational institutions to detect document similarity, perform OCR text extraction, and analyze AI-generated content across single and batch PDF assignments.
 
@@ -11,11 +11,10 @@ A cross-platform Flutter application designed for educational institutions to de
 * [Tech Stack](https://www.google.com/search?q=%23-tech-stack)
 * [System Architecture & Workflow](https://www.google.com/search?q=%23-system-architecture--workflow)
 * [Project Directory Structure](https://www.google.com/search?q=%23-project-directory-structure)
-* [REST API Reference](https://www.google.com/search?q=%23-rest-api-reference)
 * [Getting Started](https://www.google.com/search?q=%23-getting-started)
 * [Testing & Quality Assurance](https://www.google.com/search?q=%23-testing--quality-assurance)
 * [Limitations & Future Roadmap](https://www.google.com/search?q=%23-limitations--future-roadmap)
-* [Contributors & Acknowledgments](https://www.google.com/search?q=%23-contributors--acknowledgments)
+
 
 ---
 
@@ -120,7 +119,7 @@ $$\text{Similarity} = \frac{\vert{}A \cap B\vert{}}{\vert{}A \cup B\vert{}}$$
 
 ---
 
-## Project Directory Structure
+##  Project Directory Structure
 
 ```text
 lib/
@@ -157,6 +156,7 @@ lib/
 
 ```
 
+---
 
 ##  Getting Started
 
@@ -216,7 +216,7 @@ flutter run
 
 ---
 
-## 🧪 Testing & Quality Assurance
+##  Testing & Quality Assurance
 
 The application includes automated test suites covering similarity calculations, AI perplexity checks, isolate queues, and database operations.
 
@@ -240,7 +240,7 @@ flutter test
 
 ---
 
-## Limitations & Future Roadmap
+##  Limitations & Future Roadmap
 
 ### Limitations
 
