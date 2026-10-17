@@ -64,31 +64,17 @@ It operates in both an **offline local mode** (using SQLite and SharedPreference
 
 ---
 
-##  Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology | Purpose in Project |
 | --- | --- | --- |
-| **Frontend UI** | Flutter 3.x, Dart SDK | Reactive UI components, Material Design, custom UI Kit.
-
- |
-| **State Management** | Flutter BLoC, Cubit | Handles `BatchCubit` processing queues, auth state, and notifications.
-
- |
-| **OCR & Processing** | Tesseract OCR, Vision OCR, `pdf_service.dart` | Vector PDF stream parsing and scanned page OCR extraction.
-
- |
-| **Similarity Engine** | N-Gram Engine, `ai_detection_service.dart` | Tokenization, Jaccard/Cosine metrics, perplexity scoring.
-
- |
-| **Storage Layer** | SQLite (`sqflite`), SharedPreferences, IndexedDB | Native & Web offline persistence for metadata, profiles, and reports.
-
- |
-| **Target Platforms** | Android, iOS, macOS, Windows, Linux, Web | Native platform runners (`MainActivity`, `AppDelegate`, `MainFlutterWindow`).
-
- |
-| **Testing** | Flutter Test Framework, Dart Analyzer | Unit, widget, and isolate integration testing.
-
- |
+| **Frontend UI** | Flutter 3.x, Dart SDK | Reactive UI components, Material Design, custom UI Kit[cite: 1]. |
+| **State Management** | Flutter BLoC, Cubit | Handles `BatchCubit` processing queues, auth state, and notifications[cite: 1]. |
+| **OCR & Processing** | Tesseract OCR, Vision OCR, `pdf_service.dart` | Vector PDF stream parsing and scanned page OCR extraction[cite: 1]. |
+| **Similarity Engine** | N-Gram Engine, `ai_detection_service.dart` | Tokenization, Jaccard/Cosine metrics, perplexity scoring[cite: 1]. |
+| **Storage Layer** | SQLite (`sqflite`), SharedPreferences, IndexedDB | Native & Web offline persistence for metadata, profiles, and reports[cite: 1]. |
+| **Target Platforms** | Android, iOS, macOS, Windows, Linux, Web | Native platform runners (`MainActivity`, `AppDelegate`, `MainFlutterWindow`)[cite: 1]. |
+| **Testing** | Flutter Test Framework, Dart Analyzer | Unit, widget, and isolate integration testing[cite: 1]. |
 
 ---
 
