@@ -64,7 +64,7 @@ It operates in both an **offline local mode** (using SQLite and SharedPreference
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technology | Purpose in Project |
 | --- | --- | --- |
